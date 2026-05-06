@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hourly Weather · Spektrum</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "spektrum": "/vendor/spektrum/spektrum.js",
+        "spektrum/persist": "/vendor/spektrum/spektrum-persist.js",
+        "spektrum/devtools": "/vendor/spektrum/spektrum-devtools.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="sun"></div>
+
+  <main class="card">
+    <header class="hero">
+      <h1>Hourly<span class="accent">·</span>Weather</h1>
+      <p class="tag">today, by the hour — search a city, anywhere</p>
+    </header>
+
+    <form class="search" data-action="submit.prevent" data-fn="searchCity">
+      <input
+        type="text"
+        class="search-input"
+        data-ref="searchInput"
+        placeholder="Amsterdam, NL"
+        autocomplete="off"
+        spellcheck="false">
+      <button type="submit" class="search-btn" :disabled="loading">
+        <span data-if="!loading">Search</span>
+        <span data-if="loading">…</span>
+      </button>
+    </form>
+
+    <section class="location" data-if="location.name">
+      <div class="loc-text">
+        <h2>{{location.name}}<span class="comma">,</span> <span class="country">{{location.country}}</span></h2>
+        <p class="date">{{location.date}}</p>
+      </div>
+      <div class="loc-temp" data-if="hourly.length">
+        <span class="now-temp">{{currentTemp}}°</span>
+        <span class="now-icon">{{currentIcon}}</span>
+      </div>
+    </section>
+
+    <div class="error" data-if="error">{{error}}</div>
+
+    <ul class="hours" data-each="hourly" data-as="hour" data-key="hour.time">
+      <li class="hour" :class="{now: hour.isNow, past: hour.isPast}">
+        <span class="hour-label">{{hour.label}}</span>
+        <span class="hour-icon">{{hour.icon}}</span>
+        <span class="hour-temp">{{hour.temp}}°</span>
+        <span class="hour-meta">
+          <span class="meta-precip" data-if="hour.precipProb > 0">💧 {{hour.precipProb}}%</span>
+          <span class="meta-wind">🍃 {{hour.wind}} km/h</span>
+        </span>
+        <span class="hour-desc">{{hour.desc}}</span>
+      </li>
+    </ul>
+
+    <section class="time-travel">
+      <header class="tt-head">
+        <span class="tt-label">↺ history</span>
+      </header>
+      <ul class="searches" data-ref="searchList"></ul>
+    </section>
+
+    <footer class="foot">
+      <span>powered by <a href="https://open-meteo.com" target="_blank" rel="noreferrer">open-meteo</a></span>
+      <span>built with <a href="https://www.npmjs.com/package/spektrum" target="_blank" rel="noreferrer">spektrum</a></span>
+    </footer>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
