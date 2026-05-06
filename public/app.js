@@ -122,11 +122,14 @@ const loadForecast = async (place) => {
   };
 };
 
+/** Marker must be the last setValue of a successful search so replay-to-marker lands on a settled state (loading=false). */
 defineFn('searchCity', async () => {
+  // searchInput is a data-ref (not data-model) so keystrokes don't enter history — typing while rewound can't fork it.
   const input = spektrum.refs.searchInput;
   const raw = (input?.value || '').trim();
   if (!raw) return;
 
+  // Fast-forward to head before mutating; mutating from a rewound cursor would fork history and invalidate stored marker indices.
   if (spektrum.cursor < spektrum.history.length) {
     spektrum.replay(spektrum.history.length);
     if (input) input.value = raw;
@@ -146,6 +149,7 @@ defineFn('searchCity', async () => {
   if (marker) setValue('_searchMarker', marker);
 });
 
+/** Rendered imperatively because the list itself must not time-travel — only the `.current` highlight does, driven by the `_searchMarker` system. */
 const renderSearches = () => {
   const list = spektrum.refs.searchList;
   if (!list) return;
