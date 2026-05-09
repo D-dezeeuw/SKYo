@@ -52,23 +52,101 @@ export const nowKey = (timezone, date = new Date()) => {
   return `${parts.year}-${parts.month}-${parts.day}T${hour.padStart(2, '0')}`;
 };
 
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+/** Degrees (0–360, meteorological "from") → 8-point compass label. */
+export const windCompass = (deg) => {
+  if (deg == null || Number.isNaN(deg)) return '';
+  const idx = Math.round(((deg % 360) + 360) % 360 / 45) % 8;
+  return COMPASS[idx];
+};
+
 /** Open-Meteo hourly arrays → array of UI hour objects, with isNow/isPast flags
  *  computed against `now` (the "YYYY-MM-DDTHH" key of the current hour). */
 export const mapHourly = (data, now) => {
-  const { time, temperature_2m, weather_code, precipitation_probability, wind_speed_10m } = data;
+  const {
+    time, temperature_2m, weather_code,
+    precipitation_probability, wind_speed_10m, wind_direction_10m,
+  } = data;
   return time.map((t, i) => {
     const meta = codeMeta(weather_code[i]);
     const hourKey = t.slice(0, 13);
     return {
       time: t,
+      date: t.slice(0, 10),
       label: t.slice(11, 16),
+      hour: Number(t.slice(11, 13)),
       temp: Math.round(temperature_2m[i]),
       icon: meta.icon,
       desc: meta.desc,
       precipProb: precipitation_probability?.[i] ?? 0,
       wind: Math.round(wind_speed_10m[i]),
+      windDir: windCompass(wind_direction_10m?.[i]),
       isNow: hourKey === now,
       isPast: hourKey < now,
     };
   });
+};
+
+/** Split a 24-hour array into AM (0–11) and PM (12–23) by wall-clock hour. */
+export const partitionDay = (hourly) => {
+  const am = [], pm = [];
+  for (const h of hourly) (h.hour < 12 ? am : pm).push(h);
+  return { am, pm };
+};
+
+/** Group a multi-day hourly array into [{date, hours}, …] preserving input order. */
+export const partitionByDay = (hourly) => {
+  const out = [];
+  const byDate = new Map();
+  for (const h of hourly ?? []) {
+    let bucket = byDate.get(h.date);
+    if (!bucket) {
+      bucket = { date: h.date, hours: [] };
+      byDate.set(h.date, bucket);
+      out.push(bucket);
+    }
+    bucket.hours.push(h);
+  }
+  return out;
+};
+
+/** Aggregate stats across the day: highs/lows, peaks, dominant condition. */
+export const summarizeDay = (hourly) => {
+  if (!hourly?.length) return null;
+
+  let high = hourly[0], low = hourly[0];
+  let peakPrecip = hourly[0], peakWind = hourly[0];
+  let rainyHours = 0;
+  const iconCounts = new Map();
+
+  for (const h of hourly) {
+    if (h.temp > high.temp) high = h;
+    if (h.temp < low.temp) low = h;
+    if (h.precipProb > peakPrecip.precipProb) peakPrecip = h;
+    if (h.wind > peakWind.wind) peakWind = h;
+    if (h.precipProb >= 50) rainyHours += 1;
+    iconCounts.set(h.icon, (iconCounts.get(h.icon) ?? 0) + 1);
+  }
+
+  let dominantIcon = hourly[0].icon, dominantCount = 0;
+  for (const [icon, count] of iconCounts) {
+    if (count > dominantCount) { dominantIcon = icon; dominantCount = count; }
+  }
+  const dominantDesc = hourly.find((h) => h.icon === dominantIcon).desc;
+
+  return {
+    tempHigh: high.temp,
+    tempHighLabel: high.label,
+    tempLow: low.temp,
+    tempLowLabel: low.label,
+    peakPrecipProb: peakPrecip.precipProb,
+    peakPrecipLabel: peakPrecip.label,
+    peakWind: peakWind.wind,
+    peakWindLabel: peakWind.label,
+    peakWindDir: peakWind.windDir,
+    rainyHours,
+    dominantIcon,
+    dominantDesc,
+  };
 };
