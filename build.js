@@ -18,14 +18,11 @@ for (const f of [
   await copyFile(join(SPEKTRUM, f), join(DIST, 'vendor', 'spektrum', f));
 }
 
-await copyFile(join(PUBLIC, 'app.js'), join(DIST, 'app.js'));
-await copyFile(join(PUBLIC, 'styles.css'), join(DIST, 'styles.css'));
+for (const f of ['app.js', 'lib.js', 'styles.css', 'favicon.svg']) {
+  await copyFile(join(PUBLIC, f), join(DIST, f));
+}
 
-let html = await readFile(join(PUBLIC, 'index.html'), 'utf8');
-html = html
-  .replaceAll('"/vendor/spektrum/', '"./vendor/spektrum/')
-  .replaceAll('href="/styles.css"', 'href="./styles.css"')
-  .replaceAll('src="/app.js"', 'src="./app.js"');
+const html = (await readFile(join(PUBLIC, 'index.html'), 'utf8')).replaceAll('"/', '"./');
 await writeFile(join(DIST, 'index.html'), html);
 
 console.log('built → ./dist');

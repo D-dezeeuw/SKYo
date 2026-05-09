@@ -3,47 +3,7 @@ import spektrum, {
 } from 'spektrum';
 import { autoSave, loadHistory } from 'spektrum/persist';
 import { mount as mountDevtools } from 'spektrum/devtools';
-
-const WMO = {
-  0:  { icon: '☀️', desc: 'Clear sky' },
-  1:  { icon: '🌤️', desc: 'Mainly clear' },
-  2:  { icon: '⛅', desc: 'Partly cloudy' },
-  3:  { icon: '☁️', desc: 'Overcast' },
-  45: { icon: '🌫️', desc: 'Fog' },
-  48: { icon: '🌫️', desc: 'Rime fog' },
-  51: { icon: '🌦️', desc: 'Light drizzle' },
-  53: { icon: '🌦️', desc: 'Drizzle' },
-  55: { icon: '🌦️', desc: 'Heavy drizzle' },
-  56: { icon: '🌧️', desc: 'Freezing drizzle' },
-  57: { icon: '🌧️', desc: 'Freezing drizzle' },
-  61: { icon: '🌧️', desc: 'Light rain' },
-  63: { icon: '🌧️', desc: 'Rain' },
-  65: { icon: '🌧️', desc: 'Heavy rain' },
-  66: { icon: '🌧️', desc: 'Freezing rain' },
-  67: { icon: '🌧️', desc: 'Freezing rain' },
-  71: { icon: '🌨️', desc: 'Light snow' },
-  73: { icon: '🌨️', desc: 'Snow' },
-  75: { icon: '❄️', desc: 'Heavy snow' },
-  77: { icon: '🌨️', desc: 'Snow grains' },
-  80: { icon: '🌦️', desc: 'Rain showers' },
-  81: { icon: '🌧️', desc: 'Rain showers' },
-  82: { icon: '⛈️', desc: 'Violent showers' },
-  85: { icon: '🌨️', desc: 'Snow showers' },
-  86: { icon: '🌨️', desc: 'Snow showers' },
-  95: { icon: '⛈️', desc: 'Thunderstorm' },
-  96: { icon: '⛈️', desc: 'Thunderstorm + hail' },
-  99: { icon: '⛈️', desc: 'Thunderstorm + hail' },
-};
-const codeMeta = (c) => WMO[c] ?? { icon: '🌡️', desc: '—' };
-
-const formatDate = (d) => d.toLocaleDateString(undefined, {
-  weekday: 'long', month: 'long', day: 'numeric',
-});
-
-const parseQuery = (raw) => {
-  const [name, country] = raw.split(',').map((s) => s.trim()).filter(Boolean);
-  return { name, country: country?.toUpperCase() };
-};
+import { formatDate, mapHourly, nowKey, parseQuery } from './lib.js';
 
 const geocode = async ({ name, country }) => {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
@@ -73,33 +33,8 @@ const loadForecast = async (place) => {
   if (!res.ok) throw new Error('Forecast fetch failed');
   const data = await res.json();
 
-  const { time, temperature_2m, weather_code, precipitation_probability, wind_speed_10m } = data.hourly;
-
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: data.timezone,
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false,
-  });
-  const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]));
-  const hour = parts.hour === '24' ? '00' : parts.hour;
-  const nowKey = `${parts.year}-${parts.month}-${parts.day}T${hour.padStart(2, '0')}`;
-
-  const hourly = time.map((t, i) => {
-    const meta = codeMeta(weather_code[i]);
-    const hourKey = t.slice(0, 13);
-    return {
-      time: t,
-      label: t.slice(11, 16),
-      temp: Math.round(temperature_2m[i]),
-      icon: meta.icon,
-      desc: meta.desc,
-      precipProb: precipitation_probability?.[i] ?? 0,
-      wind: Math.round(wind_speed_10m[i]),
-      isNow: hourKey === nowKey,
-      isPast: hourKey < nowKey,
-    };
-  });
-
-  const todayDate = new Date(time[0]);
+  const hourly = mapHourly(data.hourly, nowKey(data.timezone));
+  const todayDate = new Date(data.hourly.time[0]);
   const current = hourly.find((h) => h.isNow) ?? hourly[0];
   const country = place.country_code || place.country || '';
 
