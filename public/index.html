@@ -21,24 +21,26 @@
   <svg class="bg-chart" data-ref="bgChart" aria-hidden="true"></svg>
 
   <main class="card">
-    <header class="hero">
-      <h1>SKYo</h1>
-      <p class="tag">your sky, instantly.</p>
-    </header>
+    <div class="card-head">
+      <header class="hero">
+        <h1>SKYo</h1>
+        <p class="tag">your sky, instantly.</p>
+      </header>
 
-    <form class="search" data-action="submit.prevent" data-fn="searchCity">
-      <input
-        type="text"
-        class="search-input"
-        data-ref="searchInput"
-        placeholder="Amsterdam, NL"
-        autocomplete="off"
-        spellcheck="false">
-      <button type="submit" class="search-btn" :disabled="loading">
-        <span data-if="!loading">Search</span>
-        <span data-if="loading">…</span>
-      </button>
-    </form>
+      <form class="search" data-action="submit.prevent" data-fn="searchCity">
+        <input
+          type="text"
+          class="search-input"
+          data-ref="searchInput"
+          placeholder="Amsterdam, NL"
+          autocomplete="off"
+          spellcheck="false">
+        <button type="submit" class="search-btn" :disabled="loading">
+          <span data-if="!loading">Search</span>
+          <span data-if="loading">…</span>
+        </button>
+      </form>
+    </div>
 
     <section class="location" data-if="location.name">
       <div class="loc-text">
@@ -218,11 +220,10 @@
         </svg>
       </a>
     </div>
-    <p>
-      Powered by
-      <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">open-meteo</a>
-      · Built with
-      <a href="https://www.npmjs.com/package/spektrum" target="_blank" rel="noopener noreferrer">
+    <p class="footer-credits">
+      <span>Powered by <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">open-meteo</a></span>
+      <span class="credit-sep" aria-hidden="true">·</span>
+      <span>Built with <a href="https://www.npmjs.com/package/spektrum" target="_blank" rel="noopener noreferrer">
         <svg class="spektrum-mark" viewBox="0 0 16 16" aria-hidden="true">
           <rect x="1" y="6" width="2" height="6" rx="1" fill="#ef4444" />
           <rect x="5" y="3" width="2" height="9" rx="1" fill="#f59e0b" />
@@ -230,7 +231,7 @@
           <rect x="13" y="2" width="2" height="10" rx="1" fill="#2dd4bf" />
         </svg>
         Spektrum
-      </a>
+      </a></span>
     </p>
   </footer>
 

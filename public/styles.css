@@ -106,16 +106,31 @@ body.bound .card {
   text-transform: lowercase;
 }
 
+/* card head: title + search side-by-side on desktop, stacked on mobile */
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.card-head .hero { flex: 1; min-width: 0; }
+.card-head .hero .tag { margin-bottom: 0; }
+
 /* search */
 .search {
   display: flex;
   gap: 10px;
-  margin-bottom: 28px;
+  flex: 0 0 auto;
+  width: 320px;
+  /* Anchor the absolutely-positioned button inside the input on desktop. */
+  position: relative;
 }
 
 .search-input {
   flex: 1;
-  padding: 11px 16px;
+  /* Right padding leaves room for the absolutely-positioned button inside the input on desktop. */
+  padding: 11px 96px 11px 16px;
   font-size: 15px;
   line-height: 1.4;
   font-family: inherit;
@@ -137,23 +152,26 @@ body.bound .card {
 }
 
 .search-btn {
-  padding: 11px 22px;
-  font-size: 14px;
-  line-height: 1.4;
+  /* Sits inside the input field on desktop. The mobile breakpoint flips this back to a regular flex sibling. */
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  padding: 0 18px;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #fff;
   background: linear-gradient(135deg, var(--pink) 0%, var(--magenta) 100%);
-  /* Transparent border keeps the button's height aligned with the input's 1px border. */
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 9px;
   cursor: pointer;
   box-shadow:
     0 4px 18px rgba(255, 45, 149, 0.45),
     0 0 0 1px rgba(255, 93, 200, 0.5) inset;
   transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
-  min-width: 110px;
 }
 
 .search-btn:hover:not(:disabled) {
@@ -841,10 +859,20 @@ body.bound .card {
 
   .location { flex-direction: column; align-items: flex-start; }
 
-  /* Search form fits the narrowest mobile viewports without clipping. */
-  .search { gap: 8px; }
+  /* Stack hero above search on mobile, with the search button as a normal flex sibling
+     (revert the desktop "button-inside-input" treatment so narrow viewports get a full-width input). */
+  .card-head { flex-direction: column; align-items: stretch; gap: 0; }
+  .card-head .hero .tag { margin-bottom: 24px; }
+  .card-head .search { width: 100%; gap: 8px; position: static; }
   .search-input { padding: 12px 14px; font-size: 15px; }
-  .search-btn   { padding: 12px 14px; font-size: 13px; min-width: 0; letter-spacing: 0.04em; }
+  .search-btn {
+    position: static;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.4;
+    border-radius: 12px;
+    letter-spacing: 0.04em;
+  }
 
   .summary { grid-template-columns: repeat(2, 1fr); }
   .sum-value { font-size: 18px; }
@@ -870,4 +898,12 @@ body.bound .card {
   }
   .hour-icon { font-size: 28px; }
   .hour-temp { font-size: 19px; }
+
+  /* Footer: keep social icons on the left, stack the credit lines on the right. */
+  .site-footer .footer-credits {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .site-footer .credit-sep { display: none; }
 }
