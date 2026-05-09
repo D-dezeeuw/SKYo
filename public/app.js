@@ -8,6 +8,7 @@ import {
   partitionDay, partitionByDay, summarizeDay,
 } from './lib.js';
 import { renderBgChart } from './chart.js';
+import { mountMap } from './map.js';
 
 const geocode = async ({ name, country }) => {
   const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
@@ -66,6 +67,48 @@ defineFn('toggleHours', () => {
 defineFn('selectDay', (_el, _state, _delta, value) => {
   setValue('selectedDay', value);
 });
+
+// --- Map (lazy-loaded Leaflet + RainViewer radar) ---
+
+let mapInstance = null;
+
+// Animation state lives in module scope, NOT spektrum state: scrubbing through
+// frames at 650ms each would otherwise produce a setValue per frame, polluting
+// history and writing to localStorage on every tick.
+const refreshMapUI = () => {
+  const playBtn = spektrum.refs.mapPlayBtn;
+  const label = spektrum.refs.mapFrameLabel;
+  if (playBtn) playBtn.textContent = mapInstance?.isPlaying() ? '⏸' : '▶';
+  if (label) label.textContent = mapInstance?.getFrame()?.label ?? '—';
+};
+
+const ensureMap = async () => {
+  if (mapInstance) return;
+  const el = spektrum.refs.weatherMap;
+  if (!el) return;
+  const lat = appState.location?.latitude;
+  const lon = appState.location?.longitude;
+  if (lat == null || lon == null) return;
+  try {
+    mapInstance = await mountMap(el, { lat, lon });
+    mapInstance.onFrame(refreshMapUI);
+    // Animation off by default; the mapVisible system below starts it on expand.
+    refreshMapUI();
+    if (appState.mapVisible) {
+      mapInstance.play();
+      refreshMapUI();
+    }
+  } catch (err) {
+    setValue('error', `Radar map failed: ${err.message ?? err}`);
+  }
+};
+
+defineFn('toggleMap', () => {
+  setValue('mapVisible', !appState.mapVisible);
+});
+defineFn('mapPlayPause', () => { mapInstance?.togglePlay(); refreshMapUI(); });
+defineFn('mapPrev',     () => { mapInstance?.pause(); mapInstance?.prev(); refreshMapUI(); });
+defineFn('mapNext',     () => { mapInstance?.pause(); mapInstance?.next(); refreshMapUI(); });
 
 /** Checkpoint must be recorded after `loading=false` so replay-to-checkpoint lands on a settled state. */
 defineFn('searchCity', async () => {
@@ -128,6 +171,7 @@ if (!restored) {
   setValue('currentIcon', '');
   setValue('hoursCollapsed', true);
   setValue('selectedDay', 0);
+  setValue('mapVisible', false);
 }
 
 // Systems + computed must be registered AFTER loadHistory: spektrum.reset() (called
@@ -170,6 +214,27 @@ const drawChart = () => renderBgChart(spektrum.refs.bgChart, appState.selectedHo
 addSystem(['selectedHours'], drawChart);
 // `hourly` changes on every search and on every replay, which is exactly when the pill list's "current" highlight needs to refresh.
 addSystem(['hourly'], renderSearches);
+// The map renders persistently (sliver when collapsed, full when expanded), so
+// it mounts on the first location we have and pans on subsequent searches.
+addSystem(['location'], () => {
+  if (appState.location?.latitude == null) return;
+  if (!mapInstance) ensureMap();
+  else mapInstance.panTo(appState.location.latitude, appState.location.longitude);
+});
+// Toggling visibility: pause the radar when collapsed (saves tile fetches),
+// play when expanded, and let Leaflet recompute tile layout after the height
+// CSS transition finishes.
+addSystem(['mapVisible'], () => {
+  if (!mapInstance) return;
+  if (appState.mapVisible) {
+    mapInstance.play();
+    setTimeout(() => mapInstance?.invalidateSize(), 320);
+  } else {
+    mapInstance.pause();
+    setTimeout(() => mapInstance?.invalidateSize(), 320);
+  }
+  refreshMapUI();
+});
 addSystem(['location'], () => {
   const input = spektrum.refs.searchInput;
   if (!input) return;
@@ -186,6 +251,10 @@ renderSearches();
 drawChart();
 // Reveal the card now that templates are filled in — see `.card` opacity rule for the FOUC story.
 document.body.classList.add('bound');
+
+// addSystem doesn't fire on registration, so a restored `location` from a
+// previous session wouldn't trigger the map mount. Mount it explicitly here.
+if (appState.location?.latitude != null) ensureMap();
 
 let resizeRAF = 0;
 window.addEventListener('resize', () => {

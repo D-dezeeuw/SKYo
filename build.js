@@ -7,7 +7,7 @@ const PUBLIC = 'public';
 await rm(DIST, { recursive: true, force: true });
 await mkdir(DIST, { recursive: true });
 
-for (const f of ['app.js', 'lib.js', 'chart.js', 'styles.css', 'favicon.svg']) {
+for (const f of ['app.js', 'lib.js', 'chart.js', 'map.js', 'styles.css', 'favicon.svg']) {
   await copyFile(join(PUBLIC, f), join(DIST, f));
 }
 

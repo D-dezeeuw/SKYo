@@ -96,6 +96,31 @@
       </div>
     </section>
 
+    <section class="weather-map-section" data-if="location.name">
+      <header class="map-head">
+        <h2>Radar</h2>
+        <button
+          type="button"
+          class="hours-toggle"
+          data-action="click"
+          data-fn="toggleMap"
+          :aria-expanded="mapVisible"
+          aria-controls="weather-map">
+          <span data-if="mapVisible">collapse −</span>
+          <span data-if="!mapVisible">expand +</span>
+        </button>
+      </header>
+      <div class="weather-map-wrap">
+        <div id="weather-map" class="weather-map" :class="{collapsed: !mapVisible}" data-ref="weatherMap"></div>
+        <div class="radar-controls" data-if="mapVisible">
+          <button type="button" class="map-btn" data-action="click" data-fn="mapPrev" aria-label="Previous frame">◀◀</button>
+          <button type="button" class="map-btn map-play" data-ref="mapPlayBtn" data-action="click" data-fn="mapPlayPause" aria-label="Play / pause">▶</button>
+          <button type="button" class="map-btn" data-action="click" data-fn="mapNext" aria-label="Next frame">▶▶</button>
+          <span class="map-frame" data-ref="mapFrameLabel">—</span>
+        </div>
+      </div>
+    </section>
+
     <header class="hours-head" data-if="hourly.length">
       <h2>Hourly forecast</h2>
       <button
