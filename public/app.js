@@ -131,6 +131,11 @@ defineFn('dismissIosHint', () => {
   }
 });
 
+defineFn('retryForecast', () => {
+  // refetchForecast is the run handle returned by addAsync below; closure resolves at click time.
+  refetchForecast?.();
+});
+
 // --- Map (lazy-loaded Leaflet + RainViewer radar) ---
 
 let mapInstance = null;
@@ -174,8 +179,15 @@ const ensureMap = () => {
         mapInstance.play();
         refreshMapUI();
       }
+      // Confirm map availability (Leaflet ESM, RainViewer manifest, and L.map all worked).
+      // The template gates the section on this; a previously-failed session re-shows once a load succeeds.
+      if (appState.mapAvailable !== true) setValue('mapAvailable', true);
     } catch (err) {
+      // Any of the third-party services the map relies on can throw here:
+      // unpkg (Leaflet ESM/CSS), tilecache.rainviewer.com (manifest), or
+      // Leaflet's own L.map(el). Failure → hide the entire radar section.
       console.error('[skyo] map mount failed:', err);
+      setValue('mapAvailable', false);
     } finally {
       mapMounting = null;
     }

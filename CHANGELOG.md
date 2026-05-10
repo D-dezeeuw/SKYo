@@ -4,6 +4,15 @@ All notable changes to Skyo. Format follows [Keep a Changelog](https://keepachan
 versioning is [SemVer](https://semver.org/spec/v2.0.0.html), with the caveat that
 0.x minor bumps may include breaking UX or state-shape changes.
 
+## [0.4.7] – 2026-05-10
+
+### Added
+- **Map auto-hide on third-party failure** — if any of the services the radar map depends on fails (Leaflet ESM from unpkg, RainViewer manifest from `tilecache.rainviewer.com`, or Leaflet's own `L.map()` constructor), the catch block in `ensureMap()` now sets a `mapAvailable` state flag to `false` and the entire `.weather-map-section` is gated on `(mapAvailable ?? true)` — the section disappears cleanly instead of showing a half-broken or empty map. A successful mount on a later page load flips the flag back to `true`, so transient outages self-correct without intervention.
+- **Forecast retry button** — the error banner gets a small `Retry` pill that calls `refetchForecast()` (addAsync's run handle), gated on the existing `loading` state. Lets users recover from transient Open-Meteo / network failures without reloading the page.
+
+### Notes
+- Other failure modes (broken individual map tiles, partial CDN slowness) are silent at the network layer — Leaflet shows placeholder tiles and there's no JS error to hook into. Those are accepted as graceful-degradation cases (visible-but-incomplete) rather than auto-hidden, since hiding the map for a single bad tile would be over-aggressive.
+
 ## [0.4.6] – 2026-05-10
 
 ### Added

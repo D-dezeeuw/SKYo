@@ -80,7 +80,13 @@
       </div>
     </section>
 
-    <div class="error" data-if="error">{{error}}</div>
+    <div class="error" data-if="error">
+      <span class="error-msg">{{error}}</span>
+      <button type="button" class="retry-btn" data-action="click" data-fn="retryForecast" :disabled="loading">
+        <span data-if="!loading">Retry</span>
+        <span data-if="loading">…</span>
+      </button>
+    </div>
 
     <nav class="day-tabs" data-if="hourly.length" aria-label="Day selector">
       <button
@@ -125,7 +131,7 @@
       </div>
     </section>
 
-    <section class="weather-map-section" data-if="location.name && selectedDay === 0">
+    <section class="weather-map-section" data-if="location.name && selectedDay === 0 && (mapAvailable ?? true)">
       <header class="map-head">
         <h2>Radar</h2>
         <div class="map-head-actions">
