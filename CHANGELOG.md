@@ -4,6 +4,11 @@ All notable changes to Skyo. Format follows [Keep a Changelog](https://keepachan
 versioning is [SemVer](https://semver.org/spec/v2.0.0.html), with the caveat that
 0.x minor bumps may include breaking UX or state-shape changes.
 
+## [0.4.9] – 2026-05-10
+
+### Changed
+- **`.hc-meta` left-aligned** — `align-self: stretch` + `justify-content: flex-start` (desktop row) and `align-items: flex-start` (mobile column) so wind and precip share a common left edge in the hour-card meta block. The previous centred alignment made the two stacked lines look staggered on narrow cards.
+
 ## [0.4.8] – 2026-05-10
 
 ### Changed

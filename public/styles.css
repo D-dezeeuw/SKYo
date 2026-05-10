@@ -527,12 +527,15 @@ body {
 }
 
 /* Wind + precip pair: side-by-side on desktop, stacked on mobile so
-   neither line gets squeezed in the narrow 3-up preview grid. */
+   neither line gets squeezed in the narrow 3-up preview grid.
+   Left-aligned so wind + precip share a common left edge (centered
+   alignment makes the two lines look staggered on narrow cards). */
 .hc-meta {
   display: flex;
   flex-direction: row;
   align-items: baseline;
-  justify-content: center;
+  justify-content: flex-start;
+  align-self: stretch;
   flex-wrap: wrap;
   gap: 4px 8px;
 }
@@ -1118,7 +1121,7 @@ body {
   .hours-head h2 { font-size: 11px; }
   .hours-toggle  { font-size: 10px; padding: 4px 10px; }
   .hour-card     { padding: 12px 8px; }
-  .hour-card .hc-meta { flex-direction: column; gap: 2px; }
+  .hour-card .hc-meta { flex-direction: column; align-items: flex-start; gap: 2px; }
   .hc-icon       { font-size: 26px; }
   .hc-temp       { font-size: 19px; }
 
