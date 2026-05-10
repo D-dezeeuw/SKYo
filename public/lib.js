@@ -80,6 +80,7 @@ export const mapHourly = (data, now) => {
       icon: meta.icon,
       desc: meta.desc,
       precipProb: precipitation_probability?.[i] ?? 0,
+      precipLabel: String(precipitation_probability?.[i] ?? 0).padStart(2, '0'),
       wind: Math.round(wind_speed_10m[i]),
       windDir: windCompass(wind_direction_10m?.[i]),
       isNow: hourKey === now,

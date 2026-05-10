@@ -65,14 +65,16 @@ body {
     0 0 0 1px rgba(255, 45, 149, 0.08) inset,
     0 30px 80px -10px rgba(255, 45, 149, 0.25),
     0 10px 40px -10px rgba(34, 211, 238, 0.2);
-  /* Hide until spektrum has bound — prevents a flash of unrendered {{...}} placeholders.
-     Safety fallback: the keyframe runs after a short delay so the card still appears
-     even if the JS module fails to load from the CDN. */
+}
+
+/* FOUC prevention: spektrum's `data-cloak` directive holds the card hidden until
+   `bindDOM()` strips the attribute. The keyframe is a safety net that reveals
+   the card even if the JS module fails to load from the CDN. */
+.card[data-cloak] {
   opacity: 0;
   animation: card-reveal-fallback 0.3s ease-out 1.5s 1 forwards;
 }
-body.bound .card {
-  animation: none;
+.card:not([data-cloak]) {
   opacity: 1;
   transition: opacity 0.25s ease-out;
 }

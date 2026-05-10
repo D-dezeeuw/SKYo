@@ -20,7 +20,7 @@
 <body>
   <svg class="bg-chart" data-ref="bgChart" aria-hidden="true"></svg>
 
-  <main class="card">
+  <main class="card" data-cloak>
     <div class="card-head">
       <header class="hero">
         <h1>SKYo</h1>
@@ -143,7 +143,7 @@
         <span class="hc-icon">{{hour.icon}}</span>
         <span class="hc-temp">{{hour.temp}}°</span>
         <span class="hc-wind">🍃 {{hour.wind}} {{hour.windDir}}</span>
-        <span class="hc-precip" data-if="hour.precipProb > 0">💧 {{hour.precipProb}}%</span>
+        <span class="hc-precip">💧 {{hour.precipLabel}}%</span>
       </li>
     </ul>
 
@@ -156,7 +156,7 @@
             <span class="hour-icon">{{hour.icon}}</span>
             <span class="hour-temp">{{hour.temp}}°</span>
             <span class="hour-wind">
-              <span data-if="hour.precipProb > 0" class="hw-precip">💧 {{hour.precipProb}}%</span>
+              <span class="hw-precip">💧 {{hour.precipLabel}}%</span>
               <span class="hw-wind">🍃 {{hour.wind}} {{hour.windDir}}</span>
             </span>
           </li>
@@ -170,7 +170,7 @@
             <span class="hour-icon">{{hour.icon}}</span>
             <span class="hour-temp">{{hour.temp}}°</span>
             <span class="hour-wind">
-              <span data-if="hour.precipProb > 0" class="hw-precip">💧 {{hour.precipProb}}%</span>
+              <span class="hw-precip">💧 {{hour.precipLabel}}%</span>
               <span class="hw-wind">🍃 {{hour.wind}} {{hour.windDir}}</span>
             </span>
           </li>

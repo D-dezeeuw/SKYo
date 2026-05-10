@@ -1,6 +1,6 @@
 import spektrum, {
-  setValue, defineFn, addSystem, bindDOM, run, appState,
-  checkpoint, computed,
+  setValue, defineFn, watch, bindDOM, run, appState,
+  checkpoint, computed, addAsync,
 } from 'spektrum';
 import { autoSave, loadHistory } from 'spektrum/persist';
 import {
@@ -27,7 +27,12 @@ const geocode = async ({ name, country }) => {
   return results[0];
 };
 
-const loadForecast = async (place) => {
+/** addAsync fn: takes no args, reads `searchQuery` from state, returns the full forecast bundle. */
+const buildForecast = async () => {
+  const raw = appState.searchQuery;
+  if (!raw) return null;
+  const place = await geocode(parseQuery(raw));
+
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', place.latitude);
   url.searchParams.set('longitude', place.longitude);
@@ -43,23 +48,19 @@ const loadForecast = async (place) => {
   const current = hourly.find((h) => h.isNow) ?? hourly[0];
   const country = place.country_code || place.country || '';
 
-  setValue('location', {
-    name: place.name,
-    country,
-    latitude: place.latitude,
-    longitude: place.longitude,
-    date: formatDate(todayDate),
-  });
-  setValue('hourly', hourly);
-  setValue('currentTemp', current.temp);
-  setValue('currentIcon', current.icon);
-  setValue('error', null);
-
-  return { name: place.name, country };
+  return {
+    location: {
+      name: place.name,
+      country,
+      latitude: place.latitude,
+      longitude: place.longitude,
+      date: formatDate(todayDate),
+    },
+    hourly,
+    current: { temp: current.temp, icon: current.icon },
+  };
 };
 
-// The built-in `toggle` data-fn is a DOM class toggler, not a state-path toggler.
-// We need a state-path toggle for the hourly-forecast collapse, so define our own.
 defineFn('toggleHours', () => {
   setValue('hoursCollapsed', !appState.hoursCollapsed);
 });
@@ -92,25 +93,24 @@ const ensureMap = async () => {
   try {
     mapInstance = await mountMap(el, { lat, lon });
     mapInstance.onFrame(refreshMapUI);
-    // Animation off by default; the mapVisible system below starts it on expand.
     refreshMapUI();
     if (appState.mapVisible) {
       mapInstance.play();
       refreshMapUI();
     }
   } catch (err) {
-    setValue('error', `Radar map failed: ${err.message ?? err}`);
+    setValue('forecast.error', `Radar map failed: ${err.message ?? err}`);
   }
 };
 
-defineFn('toggleMap', () => {
-  setValue('mapVisible', !appState.mapVisible);
-});
-defineFn('mapPlayPause', () => { mapInstance?.togglePlay(); refreshMapUI(); });
-defineFn('mapPrev',     () => { mapInstance?.pause(); mapInstance?.prev(); refreshMapUI(); });
-defineFn('mapNext',     () => { mapInstance?.pause(); mapInstance?.next(); refreshMapUI(); });
+defineFn('toggleMap',     () => { setValue('mapVisible', !appState.mapVisible); });
+defineFn('mapPlayPause',  () => { mapInstance?.togglePlay(); refreshMapUI(); });
+defineFn('mapPrev',       () => { mapInstance?.pause(); mapInstance?.prev(); refreshMapUI(); });
+defineFn('mapNext',       () => { mapInstance?.pause(); mapInstance?.next(); refreshMapUI(); });
 
-/** Checkpoint must be recorded after `loading=false` so replay-to-checkpoint lands on a settled state. */
+/** searchCity flow: write the new query, force a tick so addAsync's fn sees it,
+ *  then refetch. The checkpoint is recorded after the fetch settles so replay-to-
+ *  checkpoint lands on a settled (loading=false, data populated) state. */
 defineFn('searchCity', async () => {
   // searchInput is a data-ref (not data-model) so keystrokes don't enter history — typing while rewound can't fork it.
   const input = spektrum.refs.searchInput;
@@ -123,17 +123,15 @@ defineFn('searchCity', async () => {
     if (input) input.value = raw;
   }
 
-  setValue('loading', true);
-  setValue('error', null);
-  let place = null;
-  try {
-    place = await loadForecast(await geocode(parseQuery(raw)));
-  } catch (err) {
-    setValue('error', err.message || String(err));
-  } finally {
-    setValue('loading', false);
+  setValue('searchQuery', raw);
+  // tick() commits the delta synchronously so buildForecast reads the fresh searchQuery.
+  // Without it, fn() would run with the previous value (rAF hasn't ticked yet).
+  spektrum.tick();
+  await refetchForecast();
+  if (appState.forecast?.data) {
+    const { name, country } = appState.forecast.data.location;
+    checkpoint('search', { name, country });
   }
-  if (place) checkpoint('search', place);
 });
 
 /** Rendered imperatively because the list itself must not time-travel — only the `.current` highlight does. */
@@ -163,20 +161,31 @@ const renderSearches = () => {
 const restored = loadHistory(spektrum);
 
 if (!restored) {
-  setValue('location', { name: '', country: '', date: '' });
-  setValue('hourly', []);
-  setValue('loading', false);
-  setValue('error', null);
-  setValue('currentTemp', '');
-  setValue('currentIcon', '');
+  setValue('searchQuery', 'Amsterdam, NL');
   setValue('hoursCollapsed', true);
   setValue('selectedDay', 0);
   setValue('mapVisible', false);
+  // Commit defaults to appState before addAsync registers — its auto-run-on-register
+  // calls fn() synchronously and reads `searchQuery` from appState.
+  spektrum.tick();
 }
 
-// Systems + computed must be registered AFTER loadHistory: spektrum.reset() (called
-// inside loadHistory) wipes them, so anything subscribed before this point would
-// be silently detached on a returning visit.
+// addAsync owns `forecast.{loading,data,error}` and auto-runs once on registration,
+// fetching for whatever `searchQuery` is in state (restored or default Amsterdam).
+const refetchForecast = addAsync('forecast', buildForecast);
+
+// Bridge `forecast.{data,loading,error}` back to the flat paths the templates use.
+// Keeps the migration zero-template-change. Eager `computed` (0.5+) primes these
+// synchronously so the very first paint reads sane values.
+computed('location', ['forecast.data'], (s) =>
+  s.forecast?.data?.location ?? { name: '', country: '', date: '' });
+computed('hourly',      ['forecast.data'],    (s) => s.forecast?.data?.hourly ?? []);
+computed('currentTemp', ['forecast.data'],    (s) => s.forecast?.data?.current?.temp ?? '');
+computed('currentIcon', ['forecast.data'],    (s) => s.forecast?.data?.current?.icon ?? '');
+computed('loading',     ['forecast.loading'], (s) => s.forecast?.loading ?? false);
+computed('error',       ['forecast.error'],   (s) => s.forecast?.error ?? null);
+
+// Existing day-bucket / summary derivations.
 const selectedHoursOf = (s) => {
   const days = partitionByDay(s.hourly ?? []);
   return days[s.selectedDay ?? 0]?.hours ?? [];
@@ -198,25 +207,13 @@ computed('hoursPM',  ['selectedHours'], (s) => partitionDay(s.selectedHours ?? [
 computed('summary',  ['selectedHours'], (s) => summarizeDay(s.selectedHours ?? []));
 computed('hoursPreview', ['selectedHours', 'selectedDay'], (s) => hoursPreviewOf(s.selectedHours, s.selectedDay));
 
-// `computed()` is a thin wrapper over `addSystem`, which only fires when its deps
-// CHANGE — not on registration. On refresh, loadHistory already restored `hourly`
-// + `selectedDay`, so the computed values would stay undefined until the next
-// mutation, leaving the hourly grid blank until the user clicks something.
-// Prime the derived state once, synchronously, before bindDOM reads it.
-const _selected = selectedHoursOf(appState);
-appState.selectedHours = _selected;
-appState.hoursAM       = partitionDay(_selected).am;
-appState.hoursPM       = partitionDay(_selected).pm;
-appState.summary       = summarizeDay(_selected);
-appState.hoursPreview  = hoursPreviewOf(_selected, appState.selectedDay);
-
 const drawChart = () => renderBgChart(spektrum.refs.bgChart, appState.selectedHours);
-addSystem(['selectedHours'], drawChart);
+watch(['selectedHours'], drawChart);
 // `hourly` changes on every search and on every replay, which is exactly when the pill list's "current" highlight needs to refresh.
-addSystem(['hourly'], renderSearches);
+watch(['hourly'], renderSearches);
 // The map renders persistently (sliver when collapsed, full when expanded), so
 // it mounts on the first location we have and pans on subsequent searches.
-addSystem(['location'], () => {
+watch(['location'], () => {
   if (appState.location?.latitude == null) return;
   if (!mapInstance) ensureMap();
   else mapInstance.panTo(appState.location.latitude, appState.location.longitude);
@@ -224,7 +221,7 @@ addSystem(['location'], () => {
 // Toggling visibility: pause the radar when collapsed (saves tile fetches),
 // play when expanded, and let Leaflet recompute tile layout after the height
 // CSS transition finishes.
-addSystem(['mapVisible'], () => {
+watch(['mapVisible'], () => {
   if (!mapInstance) return;
   if (appState.mapVisible) {
     mapInstance.play();
@@ -235,7 +232,7 @@ addSystem(['mapVisible'], () => {
   }
   refreshMapUI();
 });
-addSystem(['location'], () => {
+watch(['location'], () => {
   const input = spektrum.refs.searchInput;
   if (!input) return;
   if (document.activeElement === input) return;
@@ -249,9 +246,6 @@ bindDOM();
 run();
 renderSearches();
 drawChart();
-// Reveal the card now that templates are filled in — see `.card` opacity rule for the FOUC story.
-document.body.classList.add('bound');
-
 // addSystem doesn't fire on registration, so a restored `location` from a
 // previous session wouldn't trigger the map mount. Mount it explicitly here.
 if (appState.location?.latitude != null) ensureMap();
@@ -274,24 +268,4 @@ autoSave(spektrum, { debounce: 500 });
 if (new URL(location.href).searchParams.has('dev')) {
   const { mount } = await import('spektrum/devtools');
   mount(spektrum);
-}
-
-if (!restored) {
-  (async () => {
-    setValue('loading', true);
-    let place = null;
-    try {
-      place = await loadForecast({
-        name: 'Amsterdam',
-        country_code: 'NL',
-        latitude: 52.3676,
-        longitude: 4.9041,
-      });
-    } catch (err) {
-      setValue('error', err.message || String(err));
-    } finally {
-      setValue('loading', false);
-    }
-    if (place) checkpoint('search', place);
-  })();
 }

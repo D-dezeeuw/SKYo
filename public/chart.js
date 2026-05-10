@@ -51,6 +51,33 @@ const smoothPath = (pts) => {
   return d;
 };
 
+/** Compute bar geometry for a per-hour precipitation-probability series (0–100).
+ *  Returns [{x, y, width, height, opacity}, …] in user-space units. Hours at 0%
+ *  are filtered out so dry days don't decorate the chart with phantom bars.
+ *  Non-zero values get a `minHeight` floor so a 1–2% forecast still registers
+ *  as a visible sliver instead of a sub-pixel artifact. */
+export const buildPrecipBars = (vals, { width = 1000, baseY, maxHeight, minHeight = 3 }) => {
+  const n = vals?.length ?? 0;
+  if (n === 0) return [];
+  const barWidth = Math.min(10, (width / n) * 0.55);
+  const bars = [];
+  for (let i = 0; i < n; i++) {
+    const prob = Math.max(0, Math.min(100, vals[i] ?? 0));
+    if (prob === 0) continue;
+    const cx = n === 1 ? width / 2 : (i / (n - 1)) * width;
+    const h = Math.max(minHeight, (prob / 100) * maxHeight);
+    bars.push({
+      x: cx - barWidth / 2,
+      y: baseY - h,
+      width: barWidth,
+      height: h,
+      // Light drizzle stays subtle; heavy rain reads as a vivid spike.
+      opacity: 0.35 + (prob / 100) * 0.4,
+    });
+  }
+  return bars;
+};
+
 /** Build smooth SVG path-d + gradient stops for a series of numeric values.
  *  Stops alternate rise/fall based on the local trend at each point.
  *  `width` defaults to 1000 so tests stay stable; the renderer passes the live viewport width. */
@@ -203,6 +230,28 @@ export const renderBgChart = (svg, hourly) => {
     yTop: windBand.yTop, yBottom: windBand.yBottom,
     palette: PALETTES.wind, width: W, stroke: 3, opacity: 0.85,
   });
+
+  // Precipitation bars across the bottom strip — visible at-a-glance per hour.
+  const precipVals = filled.map((h) => h.precipProb ?? 0);
+  const precipBars = buildPrecipBars(precipVals, {
+    width: W,
+    baseY: H * 0.94,
+    maxHeight: H * 0.18,
+  });
+  if (precipBars.length) {
+    const group = el('g', { class: 'bg-chart-precip' }, svg);
+    for (const bar of precipBars) {
+      el('rect', {
+        x: bar.x.toFixed(2),
+        y: bar.y.toFixed(2),
+        width: bar.width.toFixed(2),
+        height: bar.height.toFixed(2),
+        rx: 2,
+        fill: '#67e8f9',
+        'fill-opacity': bar.opacity.toFixed(2),
+      }, group);
+    }
+  }
 
   const xAt = (i) => (i / 23) * W;
   const yAtFor = (vals, yTop, yBottom) => {

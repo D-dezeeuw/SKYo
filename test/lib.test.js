@@ -115,6 +115,14 @@ test('mapHourly: missing precipitation_probability → defaults to 0', () => {
   assert.equal(out[1].precipProb, 0);
 });
 
+test('mapHourly: precipLabel pads single-digit values to two digits', () => {
+  const f = { ...fixture, precipitation_probability: [0, 5, 90] };
+  const out = mapHourly(f, '2026-05-06T13');
+  assert.equal(out[0].precipLabel, '00');
+  assert.equal(out[1].precipLabel, '05');
+  assert.equal(out[2].precipLabel, '90');
+});
+
 test('mapHourly: missing wind_direction_10m → windDir is empty string', () => {
   const out = mapHourly(fixture, '2026-05-06T13');
   assert.equal(out[0].windDir, '');
