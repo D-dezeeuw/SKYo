@@ -91,7 +91,7 @@ const ensureMap = async () => {
   const lon = appState.location?.longitude;
   if (lat == null || lon == null) return;
   try {
-    mapInstance = await mountMap(el, { lat, lon });
+    mapInstance = await mountMap(el, { lat, lon, style: appState.mapDark ? 'dark' : 'satellite' });
     mapInstance.onFrame(refreshMapUI);
     refreshMapUI();
     if (appState.mapVisible) {
@@ -103,10 +103,11 @@ const ensureMap = async () => {
   }
 };
 
-defineFn('toggleMap',     () => { setValue('mapVisible', !appState.mapVisible); });
-defineFn('mapPlayPause',  () => { mapInstance?.togglePlay(); refreshMapUI(); });
-defineFn('mapPrev',       () => { mapInstance?.pause(); mapInstance?.prev(); refreshMapUI(); });
-defineFn('mapNext',       () => { mapInstance?.pause(); mapInstance?.next(); refreshMapUI(); });
+defineFn('toggleMap',       () => { setValue('mapVisible', !appState.mapVisible); });
+defineFn('toggleMapStyle',  () => { setValue('mapDark', !appState.mapDark); });
+defineFn('mapPlayPause',    () => { mapInstance?.togglePlay(); refreshMapUI(); });
+defineFn('mapPrev',         () => { mapInstance?.pause(); mapInstance?.prev(); refreshMapUI(); });
+defineFn('mapNext',         () => { mapInstance?.pause(); mapInstance?.next(); refreshMapUI(); });
 
 /** searchCity flow: write the new query, force a tick so addAsync's fn sees it,
  *  then refetch. The checkpoint is recorded after the fetch settles so replay-to-
@@ -165,6 +166,7 @@ if (!restored) {
   setValue('hoursCollapsed', true);
   setValue('selectedDay', 0);
   setValue('mapVisible', false);
+  setValue('mapDark', true);
   // Commit defaults to appState before addAsync registers — its auto-run-on-register
   // calls fn() synchronously and reads `searchQuery` from appState.
   spektrum.tick();
@@ -221,6 +223,9 @@ watch(['location'], () => {
 // Toggling visibility: pause the radar when collapsed (saves tile fetches),
 // play when expanded, and let Leaflet recompute tile layout after the height
 // CSS transition finishes.
+watch(['mapDark'], () => {
+  mapInstance?.setStyle(appState.mapDark ? 'dark' : 'satellite');
+});
 watch(['mapVisible'], () => {
   if (!mapInstance) return;
   if (appState.mapVisible) {

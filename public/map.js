@@ -11,8 +11,19 @@ const LEAFLET_JS  = `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/leaflet-s
 const RAINVIEWER_MANIFEST = 'https://api.rainviewer.com/public/weather-maps.json';
 const FRAME_INTERVAL_MS = 650;
 
-const BASEMAP_TILE = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-const BASEMAP_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+const STYLES = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>',
+    maxZoom: 18,
+  },
+};
 
 let leafletModule = null;
 
@@ -52,9 +63,15 @@ const labelForFrame = (frame, nowIndex, idx) => {
   return idx === nowIndex ? `${time} · now` : time;
 };
 
+const makeBaseLayer = (L, name) => {
+  const cfg = STYLES[name] ?? STYLES.dark;
+  return L.tileLayer(cfg.url, cfg);
+};
+
 /** Mount a map at `el`, centered on (lat, lon), with the latest radar overlay.
- *  Returns a handle for panning, stepping frames, play/pause, and tearing down. */
-export const mountMap = async (el, { lat, lon }) => {
+ *  Returns a handle for panning, stepping frames, play/pause, swapping base
+ *  styles, and tearing down. */
+export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
   const L = await ensureLeaflet();
   const manifest = await fetchRadarManifest();
 
@@ -66,11 +83,7 @@ export const mountMap = async (el, { lat, lon }) => {
     worldCopyJump: true,
   }).setView([lat, lon], 8);
 
-  L.tileLayer(BASEMAP_TILE, {
-    attribution: BASEMAP_ATTRIBUTION,
-    subdomains: 'abcd',
-    maxZoom: 19,
-  }).addTo(map);
+  let baseLayer = makeBaseLayer(L, style).addTo(map);
 
   const marker = L.marker([lat, lon]).addTo(map);
 
@@ -140,6 +153,15 @@ export const mountMap = async (el, { lat, lon }) => {
     getFrame,
     onFrame: (fn) => { onFrameChange = fn; },
     invalidateSize: () => map.invalidateSize(),
+    setStyle: (name) => {
+      if (!STYLES[name]) return;
+      // Add the replacement first, push it to the back so it doesn't paint over
+      // the radar layers, then drop the previous base. Avoids a flash of empty map.
+      const next = makeBaseLayer(L, name).addTo(map);
+      next.bringToBack();
+      map.removeLayer(baseLayer);
+      baseLayer = next;
+    },
     destroy: () => { pause(); map.remove(); },
   };
 };

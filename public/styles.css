@@ -641,6 +641,12 @@ body {
   background: rgba(255, 45, 149, 0.15);
 }
 
+.map-btn.map-style-toggle {
+  padding: 2px 8px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
 .map-frame {
   margin-left: auto;
   font-size: 11px;

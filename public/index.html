@@ -119,6 +119,15 @@
           <button type="button" class="map-btn map-play" data-ref="mapPlayBtn" data-action="click" data-fn="mapPlayPause" aria-label="Play / pause">▶</button>
           <button type="button" class="map-btn" data-action="click" data-fn="mapNext" aria-label="Next frame">▶▶</button>
           <span class="map-frame" data-ref="mapFrameLabel">—</span>
+          <button
+            type="button"
+            class="map-btn map-style-toggle"
+            data-action="click"
+            data-fn="toggleMapStyle"
+            :aria-label="mapDark ? 'Switch to satellite view' : 'Switch to dark view'">
+            <span data-if="mapDark">☀️</span>
+            <span data-if="!mapDark">🌙</span>
+          </button>
         </div>
       </div>
     </section>
