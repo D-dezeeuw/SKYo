@@ -83,24 +83,37 @@ const refreshMapUI = () => {
   if (label) label.textContent = mapInstance?.getFrame()?.label ?? '—';
 };
 
-const ensureMap = async () => {
-  if (mapInstance) return;
+// Concurrent-mount lock. Without this, the explicit init at module bottom and
+// the `watch(['location'])` system can both call `ensureMap()` while the first
+// `mountMap()` is still awaiting Leaflet/manifest — both then try to attach
+// Leaflet to the same DOM node and the second throws "Map container is
+// already initialized."
+let mapMounting = null;
+
+const ensureMap = () => {
+  if (mapInstance) return Promise.resolve();
+  if (mapMounting) return mapMounting;
   const el = spektrum.refs.weatherMap;
-  if (!el) return;
+  if (!el) return Promise.resolve();
   const lat = appState.location?.latitude;
   const lon = appState.location?.longitude;
-  if (lat == null || lon == null) return;
-  try {
-    mapInstance = await mountMap(el, { lat, lon, style: appState.mapDark ? 'dark' : 'satellite' });
-    mapInstance.onFrame(refreshMapUI);
-    refreshMapUI();
-    if (appState.mapVisible) {
-      mapInstance.play();
+  if (lat == null || lon == null) return Promise.resolve();
+  mapMounting = (async () => {
+    try {
+      mapInstance = await mountMap(el, { lat, lon, style: appState.mapDark ? 'dark' : 'satellite' });
+      mapInstance.onFrame(refreshMapUI);
       refreshMapUI();
+      if (appState.mapVisible) {
+        mapInstance.play();
+        refreshMapUI();
+      }
+    } catch (err) {
+      console.error('[skyo] map mount failed:', err);
+    } finally {
+      mapMounting = null;
     }
-  } catch (err) {
-    setValue('forecast.error', `Radar map failed: ${err.message ?? err}`);
-  }
+  })();
+  return mapMounting;
 };
 
 defineFn('toggleMap',       () => { setValue('mapVisible', !appState.mapVisible); });
@@ -129,7 +142,10 @@ defineFn('searchCity', async () => {
   // Without it, fn() would run with the previous value (rAF hasn't ticked yet).
   spektrum.tick();
   await refetchForecast();
-  if (appState.forecast?.data) {
+  // refetchForecast's set('data', ...) writes to the delta; another tick
+  // commits it so we read the fresh forecast.data (instead of stale) below.
+  spektrum.tick();
+  if (appState.forecast?.data && !appState.forecast.error) {
     const { name, country } = appState.forecast.data.location;
     checkpoint('search', { name, country });
   }
