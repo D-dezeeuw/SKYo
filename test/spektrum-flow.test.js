@@ -23,7 +23,7 @@ const recordSearch = (sp, place) => {
 test('replay-to-checkpoint lands on a settled (loading=false) state', () => {
   const sp = createSpektrum();
 
-  recordSearch(sp, { name: 'Amsterdam', country: 'NL' });
+  recordSearch(sp, { name: 'Rotterdam', country: 'NL' });
   // Start a second search but stop mid-flight (loading still true).
   sp.setValue('loading', true);
   sp.setValue('error', null);
@@ -32,13 +32,13 @@ test('replay-to-checkpoint lands on a settled (loading=false) state', () => {
   sp.replay(first.index + 1);
 
   assert.equal(sp.appState.loading, false, 'button should not be stuck loading');
-  assert.equal(sp.appState.location.name, 'Amsterdam');
+  assert.equal(sp.appState.location.name, 'Rotterdam');
 });
 
 test('three searches → checkpoints at distinct indices, replay round-trips state', () => {
   const sp = createSpektrum();
 
-  recordSearch(sp, { name: 'Amsterdam', country: 'NL' });
+  recordSearch(sp, { name: 'Rotterdam', country: 'NL' });
   recordSearch(sp, { name: 'Tokyo',     country: 'JP' });
   recordSearch(sp, { name: 'Reykjavik', country: 'IS' });
 
@@ -47,7 +47,7 @@ test('three searches → checkpoints at distinct indices, replay round-trips sta
   assert.ok(cps[0].index < cps[1].index && cps[1].index < cps[2].index);
 
   sp.replay(cps[0].index + 1);
-  assert.equal(sp.appState.location.name, 'Amsterdam');
+  assert.equal(sp.appState.location.name, 'Rotterdam');
 
   sp.replay(cps[2].index + 1);
   assert.equal(sp.appState.location.name, 'Reykjavik');

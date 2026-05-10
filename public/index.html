@@ -41,19 +41,32 @@
         <p class="tag">your sky, instantly.</p>
       </header>
 
-      <form class="search" data-action="submit.prevent" data-fn="searchCity">
-        <input
-          type="text"
-          class="search-input"
-          data-ref="searchInput"
-          placeholder="Amsterdam, NL"
-          autocomplete="off"
-          spellcheck="false">
-        <button type="submit" class="search-btn" :disabled="loading">
-          <span data-if="!loading">Search</span>
-          <span data-if="loading">…</span>
+      <div class="search-bar">
+        <form class="search" data-action="submit.prevent" data-fn="searchCity">
+          <input
+            type="text"
+            class="search-input"
+            data-ref="searchInput"
+            placeholder="Rotterdam, NL"
+            autocomplete="off"
+            spellcheck="false">
+          <button type="submit" class="search-btn" :disabled="loading">
+            <span data-if="!loading">Search</span>
+            <span data-if="loading">…</span>
+          </button>
+        </form>
+        <button
+          type="button"
+          class="home-btn"
+          data-action="click"
+          data-fn="setHome"
+          aria-label="Save current location as home"
+          title="Save current location as home">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 11 L12 4 L21 11 V20 H3 Z" />
+          </svg>
         </button>
-      </form>
+      </div>
     </div>
 
     <section class="location" data-if="location.name">
@@ -112,19 +125,30 @@
       </div>
     </section>
 
-    <section class="weather-map-section" data-if="location.name">
+    <section class="weather-map-section" data-if="location.name && selectedDay === 0">
       <header class="map-head">
         <h2>Radar</h2>
-        <button
-          type="button"
-          class="hours-toggle"
-          data-action="click"
-          data-fn="toggleMap"
-          :aria-expanded="mapVisible"
-          aria-controls="weather-map">
-          <span data-if="mapVisible">collapse −</span>
-          <span data-if="!mapVisible">expand +</span>
-        </button>
+        <div class="map-head-actions">
+          <button
+            type="button"
+            class="map-btn map-style-toggle"
+            data-action="click"
+            data-fn="toggleMapStyle"
+            :aria-label="(mapDark ?? true) ? 'Switch to satellite view' : 'Switch to dark view'">
+            <span data-if="(mapDark ?? true)">☀️</span>
+            <span data-if="!(mapDark ?? true)">🌙</span>
+          </button>
+          <button
+            type="button"
+            class="hours-toggle"
+            data-action="click"
+            data-fn="toggleMap"
+            :aria-expanded="mapVisible"
+            aria-controls="weather-map">
+            <span data-if="mapVisible">collapse −</span>
+            <span data-if="!mapVisible">expand +</span>
+          </button>
+        </div>
       </header>
       <div class="weather-map-wrap">
         <div id="weather-map" class="weather-map" :class="{collapsed: !mapVisible}" data-ref="weatherMap"></div>
@@ -133,15 +157,6 @@
           <button type="button" class="map-btn map-play" data-ref="mapPlayBtn" data-action="click" data-fn="mapPlayPause" aria-label="Play / pause">▶</button>
           <button type="button" class="map-btn" data-action="click" data-fn="mapNext" aria-label="Next frame">▶▶</button>
           <span class="map-frame" data-ref="mapFrameLabel">—</span>
-          <button
-            type="button"
-            class="map-btn map-style-toggle"
-            data-action="click"
-            data-fn="toggleMapStyle"
-            :aria-label="mapDark ? 'Switch to satellite view' : 'Switch to dark view'">
-            <span data-if="mapDark">☀️</span>
-            <span data-if="!mapDark">🌙</span>
-          </button>
         </div>
       </div>
     </section>

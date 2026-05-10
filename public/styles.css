@@ -119,15 +119,49 @@ body {
 .card-head .hero { flex: 1; min-width: 0; }
 .card-head .hero .tag { margin-bottom: 0; }
 
+/* search bar = search form + home button trailing it */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: 360px;
+}
+
 /* search */
 .search {
   display: flex;
   gap: 10px;
-  flex: 0 0 auto;
-  width: 320px;
+  flex: 1;
   /* Anchor the absolutely-positioned button inside the input on desktop. */
   position: relative;
 }
+
+.home-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: rgba(5, 1, 15, 0.55);
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.06s;
+}
+
+.home-btn svg { display: block; }
+
+.home-btn:hover {
+  color: var(--cyan-bright);
+  border-color: var(--cyan);
+  background: rgba(34, 211, 238, 0.1);
+}
+
+.home-btn:active { transform: translateY(1px); }
 
 .search-input {
   flex: 1;
@@ -581,6 +615,12 @@ body {
   text-shadow: 0 0 8px rgba(103, 232, 249, 0.4);
 }
 
+.map-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .weather-map-wrap {
   display: flex;
   flex-direction: column;
@@ -656,6 +696,30 @@ body {
   letter-spacing: 0.04em;
   color: var(--text-dim);
 }
+
+/* Precipitation badge: top-right L.Control showing the Open-Meteo precip
+   probability for the radar frame's hour, in the searched city's timezone. */
+.leaflet-control-precip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(5, 1, 15, 0.78);
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cyan-bright);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.leaflet-control-precip .precip-icon { font-size: 13px; line-height: 1; }
+.leaflet-control-precip .precip-value { line-height: 1; }
 
 /* Leaflet UI overrides — pull the default chrome into the synthwave palette */
 .leaflet-container {
@@ -871,9 +935,18 @@ body {
 
   /* Stack hero above search on mobile, with the search button as a normal flex sibling
      (revert the desktop "button-inside-input" treatment so narrow viewports get a full-width input). */
-  .card-head { flex-direction: column; align-items: stretch; gap: 0; }
+  /* Home button moves to the top-right corner of the card head on mobile so
+     the search input gets full width and the button never clips off-screen. */
+  .card-head { flex-direction: column; align-items: stretch; gap: 0; position: relative; padding-right: 50px; }
   .card-head .hero .tag { margin-bottom: 24px; }
-  .card-head .search { width: 100%; gap: 8px; position: static; }
+  .card-head .search-bar { width: 100%; }
+  .card-head .search { width: auto; gap: 8px; position: static; }
+  .card-head .home-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1;
+  }
   .search-input { padding: 12px 14px; font-size: 15px; }
   .search-btn {
     position: static;

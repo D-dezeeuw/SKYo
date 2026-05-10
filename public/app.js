@@ -54,6 +54,7 @@ const buildForecast = async () => {
       country,
       latitude: place.latitude,
       longitude: place.longitude,
+      timezone: data.timezone,
       date: formatDate(todayDate),
     },
     hourly,
@@ -67,6 +68,44 @@ defineFn('toggleHours', () => {
 
 defineFn('selectDay', (_el, _state, _delta, value) => {
   setValue('selectedDay', value);
+});
+
+const HOME_KEY = 'skyo:home';
+
+// Capture Chrome's `beforeinstallprompt` so we can trigger the PWA install
+// dialog on demand from the home button. iOS Safari has no programmatic API
+// for Add-to-Home-Screen — that path stays save-and-reload only.
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
+
+defineFn('setHome', async () => {
+  const loc = appState.location;
+  if (!loc?.name) return;
+  const home = loc.country ? `${loc.name}, ${loc.country}` : loc.name;
+  try { localStorage.setItem(HOME_KEY, home); } catch (err) {
+    console.error('[skyo] could not save home:', err);
+  }
+  // Offer the PWA install dialog if the browser fired beforeinstallprompt
+  // (Android Chrome, desktop Chrome). Wait for the user's choice before
+  // reloading so the in-flight install dialog isn't cleared by navigation.
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch (err) {
+      console.error('[skyo] install prompt failed:', err);
+    }
+    deferredInstallPrompt = null;
+  }
+  // Reload at ?city= so the URL is bookmark/share-friendly and the home
+  // location applies immediately on the very next paint.
+  const url = new URL(location.href);
+  url.searchParams.set('city', home);
+  window.location.href = url.toString();
 });
 
 // --- Map (lazy-loaded Leaflet + RainViewer radar) ---
@@ -100,7 +139,12 @@ const ensureMap = () => {
   if (lat == null || lon == null) return Promise.resolve();
   mapMounting = (async () => {
     try {
-      mapInstance = await mountMap(el, { lat, lon, style: appState.mapDark ? 'dark' : 'satellite' });
+      mapInstance = await mountMap(el, {
+        lat, lon,
+        style: appState.mapDark ? 'dark' : 'satellite',
+        timezone: appState.location?.timezone,
+        hourly: appState.hourly,
+      });
       mapInstance.onFrame(refreshMapUI);
       refreshMapUI();
       if (appState.mapVisible) {
@@ -175,21 +219,56 @@ const renderSearches = () => {
   }));
 };
 
+// `?city=Rotterdam,NL` overrides whatever location the app would otherwise load
+// — share-friendly deep links + the target of the "save as home" button below.
+const urlCity = new URL(location.href).searchParams.get('city');
+
+// Optional persistent fallback set via the home button. Used only on a
+// fresh install (no spektrum history yet) when no URL ?city is present.
+let storedHome = null;
+try { storedHome = localStorage.getItem(HOME_KEY); } catch {}
+
 const restored = loadHistory(spektrum);
 
+// Resolve the starting query in priority order:
+//   1. URL ?city= (always wins — share-friendly deep links must work even
+//      across restored sessions and saved-home fallbacks)
+//   2. localStorage home (only when no spektrum history was restored, e.g.
+//      fresh install / cleared cache, otherwise it would clobber the user's
+//      ongoing session continuity)
+//   3. spektrum-restored searchQuery (the previous session's last city)
+//   4. 'Rotterdam, NL' fallback
+const normalize = (s) => (s ?? '').trim();
+let desiredQuery;
+if (urlCity) desiredQuery = urlCity;
+else if (!restored && storedHome) desiredQuery = storedHome;
+else if (restored) desiredQuery = appState.searchQuery;
+else desiredQuery = 'Rotterdam, NL';
+
 if (!restored) {
-  setValue('searchQuery', 'Amsterdam, NL');
+  setValue('searchQuery', desiredQuery);
   setValue('hoursCollapsed', true);
   setValue('selectedDay', 0);
   setValue('mapVisible', false);
   setValue('mapDark', true);
-  // Commit defaults to appState before addAsync registers — its auto-run-on-register
-  // calls fn() synchronously and reads `searchQuery` from appState.
-  spektrum.tick();
+} else if (normalize(desiredQuery) !== normalize(appState.searchQuery)) {
+  // URL differs from restored — override so addAsync's auto-run fetches the
+  // URL city. `normalize` strips whitespace so "Rotterdam,NL" and
+  // "Rotterdam, NL" don't trigger a needless re-fetch.
+  setValue('searchQuery', desiredQuery);
 }
 
+// Forward-compat: an older session may have been persisted without `mapDark`.
+// The map style toggle's data-if uses `mapDark ?? true` to render correctly even
+// without this set, but committing it here also keeps history shape consistent.
+if (appState.mapDark === undefined) setValue('mapDark', true);
+
+// Commit defaults to appState before addAsync registers — its auto-run-on-register
+// calls fn() synchronously and reads `searchQuery` from appState.
+spektrum.tick();
+
 // addAsync owns `forecast.{loading,data,error}` and auto-runs once on registration,
-// fetching for whatever `searchQuery` is in state (restored or default Amsterdam).
+// fetching for whatever `searchQuery` is in state (restored or default Rotterdam).
 const refetchForecast = addAsync('forecast', buildForecast);
 
 // Bridge `forecast.{data,loading,error}` back to the flat paths the templates use.
@@ -229,12 +308,19 @@ const drawChart = () => renderBgChart(spektrum.refs.bgChart, appState.selectedHo
 watch(['selectedHours'], drawChart);
 // `hourly` changes on every search and on every replay, which is exactly when the pill list's "current" highlight needs to refresh.
 watch(['hourly'], renderSearches);
+// Feed the latest hourly forecast into the map so the precip badge can update.
+watch(['hourly'], () => mapInstance?.setHourly(appState.hourly));
 // The map renders persistently (sliver when collapsed, full when expanded), so
 // it mounts on the first location we have and pans on subsequent searches.
+// Also re-bind the radar time formatter to the new city's timezone so radar
+// timestamps stay in the searched region's wall-clock time.
 watch(['location'], () => {
   if (appState.location?.latitude == null) return;
   if (!mapInstance) ensureMap();
-  else mapInstance.panTo(appState.location.latitude, appState.location.longitude);
+  else {
+    mapInstance.panTo(appState.location.latitude, appState.location.longitude);
+    mapInstance.setTimezone(appState.location.timezone);
+  }
 });
 // Toggling visibility: pause the radar when collapsed (saves tile fetches),
 // play when expanded, and let Leaflet recompute tile layout after the height
@@ -252,6 +338,18 @@ watch(['mapVisible'], () => {
     setTimeout(() => mapInstance?.invalidateSize(), 320);
   }
   refreshMapUI();
+});
+// Tomorrow tab hides the whole radar section — RainViewer doesn't have real
+// forecast tiles that far out. Pause animation when hidden; resume +
+// invalidateSize on switch back so the now-visible container repaints.
+watch(['selectedDay'], () => {
+  if (!mapInstance) return;
+  if (appState.selectedDay === 0) {
+    if (appState.mapVisible) mapInstance.play();
+    setTimeout(() => mapInstance?.invalidateSize(), 50);
+  } else {
+    mapInstance.pause();
+  }
 });
 watch(['location'], () => {
   const input = spektrum.refs.searchInput;

@@ -8,20 +8,20 @@ import {
 // --- parseQuery ---------------------------------------------------------
 
 test('parseQuery: "City, CC" → split + uppercase country', () => {
-  assert.deepEqual(parseQuery('Amsterdam, NL'), { name: 'Amsterdam', country: 'NL' });
+  assert.deepEqual(parseQuery('Rotterdam, NL'), { name: 'Rotterdam', country: 'NL' });
 });
 
 test('parseQuery: "City" alone → no country', () => {
-  assert.deepEqual(parseQuery('Amsterdam'), { name: 'Amsterdam', country: undefined });
+  assert.deepEqual(parseQuery('Rotterdam'), { name: 'Rotterdam', country: undefined });
 });
 
 test('parseQuery: trims whitespace, uppercases lowercased country', () => {
-  assert.deepEqual(parseQuery('  amsterdam  ,  nl  '), { name: 'amsterdam', country: 'NL' });
+  assert.deepEqual(parseQuery('  Rotterdam  ,  nl  '), { name: 'Rotterdam', country: 'NL' });
 });
 
 test('parseQuery: leading/trailing comma — empty parts dropped', () => {
   assert.deepEqual(parseQuery(', NL'), { name: 'NL', country: undefined });
-  assert.deepEqual(parseQuery('Amsterdam,'), { name: 'Amsterdam', country: undefined });
+  assert.deepEqual(parseQuery('Rotterdam,'), { name: 'Rotterdam', country: undefined });
 });
 
 test('parseQuery: empty / null / undefined are safe', () => {
@@ -55,8 +55,9 @@ test('codeMeta: undefined / null don\'t throw', () => {
 
 // --- nowKey -------------------------------------------------------------
 
-test('nowKey: Amsterdam summer (CEST, UTC+2)', () => {
-  // 2026-05-06T13:30Z = 15:30 in Europe/Amsterdam during summer time
+test('nowKey: NL (CEST, UTC+2) at 13:30Z → 15:30 wall', () => {
+  // IANA tz database uses Europe/Amsterdam as the canonical zone for the
+  // Netherlands — Rotterdam, Amsterdam etc. all share it.
   const at = new Date('2026-05-06T13:30:00Z');
   assert.equal(nowKey('Europe/Amsterdam', at), '2026-05-06T15');
 });

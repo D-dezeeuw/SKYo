@@ -55,12 +55,41 @@ const fetchRadarManifest = async () => {
   };
 };
 
-const labelForFrame = (frame, nowIndex, idx) => {
-  const d = new Date(frame.time * 1000);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  const time = `${hh}:${mm}`;
-  return idx === nowIndex ? `${time} · now` : time;
+/** Build an Intl formatter that prints `HH:MM` in the given timezone (DST-aware).
+ *  Falls back to the user's browser timezone if `timezone` is missing or invalid. */
+const makeTimeFormatter = (timezone) => {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false,
+      timeZone: timezone || undefined,
+    });
+  } catch {
+    return new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+  }
+};
+
+/** Build an Intl formatter that produces the YYYY-MM-DDTHH key in the given
+ *  timezone. Used to match radar frames (UTC unix seconds) against Open-Meteo's
+ *  city-local hourly forecast (which prefixes each entry with that key). */
+const cityHourFormatters = new Map();
+const cityHourKey = (timezone, date) => {
+  if (!timezone) return null;
+  let fmt = cityHourFormatters.get(timezone);
+  if (!fmt) {
+    try {
+      fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', hour12: false,
+      });
+    } catch { return null; }
+    cityHourFormatters.set(timezone, fmt);
+  }
+  const parts = Object.fromEntries(fmt.formatToParts(date).map((p) => [p.type, p.value]));
+  const hour = parts.hour === '24' ? '00' : parts.hour;
+  return `${parts.year}-${parts.month}-${parts.day}T${hour.padStart(2, '0')}`;
 };
 
 const makeBaseLayer = (L, name) => {
@@ -71,7 +100,7 @@ const makeBaseLayer = (L, name) => {
 /** Mount a map at `el`, centered on (lat, lon), with the latest radar overlay.
  *  Returns a handle for panning, stepping frames, play/pause, swapping base
  *  styles, and tearing down. */
-export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
+export const mountMap = async (el, { lat, lon, style = 'dark', timezone, hourly }) => {
   const L = await ensureLeaflet();
   const manifest = await fetchRadarManifest();
 
@@ -81,11 +110,23 @@ export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
     minZoom: 4,
     maxZoom: 12,
     worldCopyJump: true,
-  }).setView([lat, lon], 8);
+  }).setView([lat, lon], 6);
 
   let baseLayer = makeBaseLayer(L, style).addTo(map);
 
-  const marker = L.marker([lat, lon]).addTo(map);
+  // Half-size of Leaflet's default marker (25×41 → 13×21). Default's image
+  // auto-detection breaks when Leaflet is loaded as ESM from a CDN, so the
+  // image URLs are pinned to the same unpkg version we imported the lib from.
+  const markerIcon = L.icon({
+    iconUrl: `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon.png`,
+    iconRetinaUrl: `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-icon-2x.png`,
+    shadowUrl: `https://unpkg.com/leaflet@${LEAFLET_VERSION}/dist/images/marker-shadow.png`,
+    iconSize:    [13, 21],
+    iconAnchor:  [6, 21],
+    popupAnchor: [1, -17],
+    shadowSize:  [21, 21],
+  });
+  const marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
 
   // Pre-create a tile layer per frame at zero opacity. Cycling animation just
   // toggles opacity instead of recreating layers — buttery-smooth playback
@@ -106,6 +147,41 @@ export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
   let playing = false;
   let intervalId = 0;
   let onFrameChange = null;
+  // The radar shows weather over the searched region — labelling timestamps in
+  // *that* region's wall-clock time (DST-aware via Intl) is what users expect,
+  // not the user's browser timezone (which can differ for travellers / VPNs).
+  let timeFormatter = makeTimeFormatter(timezone);
+  let mapTimezone = timezone;
+  let hourlyForecast = Array.isArray(hourly) ? hourly : [];
+
+  // Precip indicator: a small badge in the map's top-right corner that
+  // shows the Open-Meteo hourly precipitation probability for the hour
+  // matching the current radar frame (city-local timezone, DST-aware).
+  const PrecipControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const div = L.DomUtil.create('div', 'leaflet-control-precip');
+      div.innerHTML = '<span class="precip-icon" aria-hidden="true">💧</span><span class="precip-value">—</span>';
+      return div;
+    },
+  });
+  const precipControl = new PrecipControl().addTo(map);
+
+  const updatePrecip = () => {
+    const valueEl = precipControl.getContainer()?.querySelector('.precip-value');
+    if (!valueEl) return;
+    const frame = manifest.frames[frameIdx];
+    if (!frame || !hourlyForecast.length || !mapTimezone) {
+      valueEl.textContent = '—';
+      return;
+    }
+    const key = cityHourKey(mapTimezone, new Date(frame.time * 1000));
+    if (!key) { valueEl.textContent = '—'; return; }
+    const hour = hourlyForecast.find((h) => h.time?.slice(0, 13) === key);
+    if (!hour) { valueEl.textContent = '—'; return; }
+    const prob = hour.precipProb ?? 0;
+    valueEl.textContent = `${String(prob).padStart(2, '0')}%`;
+  };
 
   const showFrame = (idx) => {
     if (idx < 0 || idx >= radarLayers.length) return;
@@ -113,14 +189,19 @@ export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
     radarLayers[idx].setOpacity(0.7);
     frameIdx = idx;
     onFrameChange?.(getFrame());
+    updatePrecip();
   };
 
-  const getFrame = () => ({
-    idx: frameIdx,
-    total: manifest.frames.length,
-    label: labelForFrame(manifest.frames[frameIdx], manifest.nowIndex, frameIdx),
-    isNow: frameIdx === manifest.nowIndex,
-  });
+  const getFrame = () => {
+    const frame = manifest.frames[frameIdx];
+    const time = timeFormatter.format(new Date(frame.time * 1000));
+    const isNow = frameIdx === manifest.nowIndex;
+    const isForecast = frameIdx > manifest.nowIndex;
+    let label = time;
+    if (isNow) label = `${time} · now`;
+    else if (isForecast) label = `${time} · forecast`;
+    return { idx: frameIdx, total: manifest.frames.length, label, isNow, isForecast };
+  };
 
   const next = () => showFrame((frameIdx + 1) % manifest.frames.length);
   const prev = () => showFrame((frameIdx - 1 + manifest.frames.length) % manifest.frames.length);
@@ -142,6 +223,7 @@ export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
 
   // Show the "now" frame on load so the radar overlay is visible immediately.
   radarLayers[frameIdx].setOpacity(0.7);
+  updatePrecip();
 
   return {
     panTo: (newLat, newLon) => {
@@ -153,6 +235,16 @@ export const mountMap = async (el, { lat, lon, style = 'dark' }) => {
     getFrame,
     onFrame: (fn) => { onFrameChange = fn; },
     invalidateSize: () => map.invalidateSize(),
+    setTimezone: (tz) => {
+      mapTimezone = tz;
+      timeFormatter = makeTimeFormatter(tz);
+      onFrameChange?.(getFrame());
+      updatePrecip();
+    },
+    setHourly: (arr) => {
+      hourlyForecast = Array.isArray(arr) ? arr : [];
+      updatePrecip();
+    },
     setStyle: (name) => {
       if (!STYLES[name]) return;
       // Add the replacement first, push it to the back so it doesn't paint over
