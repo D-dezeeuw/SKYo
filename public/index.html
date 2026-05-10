@@ -186,8 +186,10 @@
         <span class="hc-time">{{hour.label}}</span>
         <span class="hc-icon">{{hour.icon}}</span>
         <span class="hc-temp">{{hour.temp}}°</span>
-        <span class="hc-wind">🍃 {{hour.wind}} {{hour.windDir}}</span>
-        <span class="hc-precip">💧 {{hour.precipLabel}}%</span>
+        <div class="hc-meta">
+          <span class="hc-wind">🍃 {{hour.wind}} {{hour.windDir}}</span>
+          <span class="hc-precip">💧 {{hour.precipLabel}}%</span>
+        </div>
       </li>
     </ul>
 

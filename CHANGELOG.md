@@ -4,6 +4,11 @@ All notable changes to Skyo. Format follows [Keep a Changelog](https://keepachan
 versioning is [SemVer](https://semver.org/spec/v2.0.0.html), with the caveat that
 0.x minor bumps may include breaking UX or state-shape changes.
 
+## [0.4.8] – 2026-05-10
+
+### Changed
+- **Hour-card meta layout** — wind + precip wrapped in a new `.hc-meta` container. Side-by-side on desktop (precip reads inline right of wind, single line per card) and stacked on mobile so neither line gets squeezed in the narrow 3-up preview grid. Both spans get `white-space: nowrap` so the values don't break across glyphs.
+
 ## [0.4.7] – 2026-05-10
 
 ### Added
