@@ -648,7 +648,9 @@ body {
 }
 
 .map-frame {
-  margin-left: auto;
+  /* Auto on both sides: centered in the leftover flex space between the
+     playback buttons (left) and the style toggle (right). */
+  margin: 0 auto;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
