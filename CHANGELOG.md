@@ -4,6 +4,11 @@ All notable changes to Skyo. Format follows [Keep a Changelog](https://keepachan
 versioning is [SemVer](https://semver.org/spec/v2.0.0.html), with the caveat that
 0.x minor bumps may include breaking UX or state-shape changes.
 
+## [0.4.6] – 2026-05-10
+
+### Added
+- **iOS Add-to-Home-Screen hint modal** — iOS Safari/Chrome have no programmatic API for triggering the install dialog (`beforeinstallprompt` is Chromium-only). Tapping the home button on an iOS device that isn't already running standalone now surfaces a custom in-page modal with the manual three-tap flow (Share → scroll → Add to Home Screen). Reload at `?city=` is deferred until the user dismisses the modal so the home save promise stays honoured. Android / desktop Chromium continue to get the OS install dialog via the captured `beforeinstallprompt`.
+
 ## [0.4.5] – 2026-05-10
 
 ### Added

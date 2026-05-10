@@ -73,14 +73,24 @@ defineFn('selectDay', (_el, _state, _delta, value) => {
 const HOME_KEY = 'skyo:home';
 
 // Capture Chrome's `beforeinstallprompt` so we can trigger the PWA install
-// dialog on demand from the home button. iOS Safari has no programmatic API
-// for Add-to-Home-Screen — that path stays save-and-reload only.
+// dialog on demand from the home button. iOS Safari/Chrome have no
+// equivalent API — install is a manual Share-menu flow, so we surface a
+// hint modal instead. See `iosHintOpen` below.
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstallPrompt = e;
 });
 window.addEventListener('appinstalled', () => { deferredInstallPrompt = null; });
+
+const isIosDevice = () => /iphone|ipad|ipod/.test((navigator.userAgent || '').toLowerCase());
+const isStandaloneApp = () =>
+  window.navigator.standalone === true ||
+  window.matchMedia?.('(display-mode: standalone)').matches;
+
+// Reload URL parked here while the iOS hint modal is up — the home button
+// promised the user a save+reload, and we honour it after they dismiss.
+let pendingHomeReloadUrl = null;
 
 defineFn('setHome', async () => {
   const loc = appState.location;
@@ -89,23 +99,36 @@ defineFn('setHome', async () => {
   try { localStorage.setItem(HOME_KEY, home); } catch (err) {
     console.error('[skyo] could not save home:', err);
   }
-  // Offer the PWA install dialog if the browser fired beforeinstallprompt
-  // (Android Chrome, desktop Chrome). Wait for the user's choice before
-  // reloading so the in-flight install dialog isn't cleared by navigation.
+  const url = new URL(location.href);
+  url.searchParams.set('city', home);
+
   if (deferredInstallPrompt) {
+    // Android / desktop Chromium: OS install dialog. Await userChoice so the
+    // dialog isn't cleared by our navigation.
     try {
       deferredInstallPrompt.prompt();
       await deferredInstallPrompt.userChoice;
-    } catch (err) {
-      console.error('[skyo] install prompt failed:', err);
-    }
+    } catch (err) { console.error('[skyo] install prompt failed:', err); }
     deferredInstallPrompt = null;
+    window.location.href = url.toString();
+  } else if (isIosDevice() && !isStandaloneApp()) {
+    // iOS: no API. Defer the reload until the user dismisses the hint modal.
+    pendingHomeReloadUrl = url.toString();
+    setValue('iosHintOpen', true);
+  } else {
+    // Already installed (standalone) or non-prompt-supporting browser:
+    // just save and reload silently.
+    window.location.href = url.toString();
   }
-  // Reload at ?city= so the URL is bookmark/share-friendly and the home
-  // location applies immediately on the very next paint.
-  const url = new URL(location.href);
-  url.searchParams.set('city', home);
-  window.location.href = url.toString();
+});
+
+defineFn('dismissIosHint', () => {
+  setValue('iosHintOpen', false);
+  if (pendingHomeReloadUrl) {
+    const url = pendingHomeReloadUrl;
+    pendingHomeReloadUrl = null;
+    window.location.href = url;
+  }
 });
 
 // --- Map (lazy-loaded Leaflet + RainViewer radar) ---

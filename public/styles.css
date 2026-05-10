@@ -745,6 +745,119 @@ body {
   color: var(--cyan-bright) !important;
 }
 
+/* iOS Add-to-Home-Screen hint modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(5, 1, 15, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: modal-fade 0.2s ease-out;
+}
+
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 420px;
+  background: linear-gradient(155deg, rgba(14, 26, 79, 0.92) 0%, rgba(10, 9, 48, 0.96) 100%);
+  border: 1px solid rgba(103, 232, 249, 0.3);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 149, 0.15) inset,
+    0 30px 80px -10px rgba(255, 45, 149, 0.4),
+    0 10px 40px -10px rgba(34, 211, 238, 0.3);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  animation: modal-pop 0.22s ease-out;
+}
+
+@keyframes modal-pop {
+  from { transform: translateY(8px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+.modal-head {
+  padding: 22px 24px 12px;
+  border-bottom: 1px solid rgba(103, 232, 249, 0.12);
+}
+
+.modal-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  background: linear-gradient(90deg, var(--cyan-bright) 0%, #fff 50%, var(--pink-bright) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.modal-body {
+  padding: 18px 24px;
+  color: var(--text-dim);
+}
+
+.modal-body p { margin: 0 0 12px; }
+.modal-body strong { color: var(--text); font-weight: 700; }
+
+.ios-steps {
+  margin: 14px 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ios-steps li::marker {
+  color: var(--cyan-bright);
+  font-weight: 700;
+}
+
+.modal-foot-note {
+  margin-top: 14px !important;
+  font-size: 12px;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.modal-foot {
+  padding: 12px 24px 22px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-confirm {
+  padding: 10px 22px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: linear-gradient(135deg, var(--pink) 0%, var(--magenta) 100%);
+  border: 1px solid rgba(255, 93, 200, 0.5);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow:
+    0 4px 18px rgba(255, 45, 149, 0.45),
+    0 0 0 1px rgba(255, 93, 200, 0.5) inset;
+  transition: filter 0.15s, transform 0.06s;
+}
+
+.modal-confirm:hover { filter: brightness(1.1); }
+.modal-confirm:active { transform: translateY(1px); }
+
 /* time-travel: past searches */
 .time-travel {
   margin-top: 28px;

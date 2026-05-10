@@ -223,6 +223,26 @@
       <ul class="searches" data-ref="searchList"></ul>
     </section>
 
+    <div class="modal-overlay" data-if="iosHintOpen" data-action="click.self" data-fn="dismissIosHint" role="dialog" aria-modal="true" aria-labelledby="ios-hint-title">
+      <section class="modal-card">
+        <header class="modal-head">
+          <h3 id="ios-hint-title">Install Skyo</h3>
+        </header>
+        <div class="modal-body">
+          <p>iOS doesn't allow web apps to trigger the install prompt directly — but you can still pin Skyo to your home screen in three taps:</p>
+          <ol class="ios-steps">
+            <li>Tap the <strong>Share</strong> icon at the bottom of your browser</li>
+            <li>Scroll down in the share sheet</li>
+            <li>Tap <strong>Add to Home Screen</strong></li>
+          </ol>
+          <p class="modal-foot-note">Your home location is saved either way — tap "Got it" to continue.</p>
+        </div>
+        <footer class="modal-foot">
+          <button type="button" class="modal-confirm" data-action="click" data-fn="dismissIosHint">Got it</button>
+        </footer>
+      </section>
+    </div>
+
   </main>
 
   <footer class="site-footer">
