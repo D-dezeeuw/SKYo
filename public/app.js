@@ -417,6 +417,23 @@ spektrum.refs.searchList?.addEventListener('click', (ev) => {
   if (Number.isFinite(idx)) spektrum.replay(idx + 1);
 });
 
+// Clear the search field on focus so the user can start typing immediately;
+// restore the displayed city on blur if nothing was entered.
+const searchInputEl = spektrum.refs.searchInput;
+if (searchInputEl) {
+  let prefocusValue = '';
+  searchInputEl.addEventListener('focus', () => {
+    prefocusValue = searchInputEl.value;
+    searchInputEl.value = '';
+  });
+  searchInputEl.addEventListener('blur', () => {
+    if (!searchInputEl.value.trim()) {
+      searchInputEl.value = prefocusValue;
+    }
+    prefocusValue = '';
+  });
+}
+
 autoSave(spektrum, { debounce: 500 });
 
 if (new URL(location.href).searchParams.has('dev')) {
